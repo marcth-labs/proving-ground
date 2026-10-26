@@ -1,0 +1,11 @@
+# Exactly one CODEOWNERS file in this repository. GitHub searches .github/,
+# then the root, then docs/, and uses the first it finds -- two copies that
+# drift is a silent trap.
+#
+# A bare owner with no pattern is invalid, and a malformed CODEOWNERS fails
+# OPEN: it satisfies require_code_owner_review vacuously while the pull request
+# sidebar still looks armed. Hence the explicit `*`.
+#
+# Note also that CODEOWNERS is inert on the pull request that introduces it,
+# because GitHub reads it from the base branch.
+* @marcth
