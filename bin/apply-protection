@@ -1,0 +1,37 @@
+#!/bin/sh
+#
+# Apply .github/rulesets/*.json to the repository.
+#
+# Run by a human with an admin token, from a human's shell. Never by CI: an
+# admin PAT in Actions secrets would hand admin power to the implementer
+# credential, which is precisely the arrangement the rulesets exist to create.
+#
+# Idempotent. A ruleset whose name already exists is updated in place, so the
+# committed JSON stays the single source of truth and reapplying is always safe.
+
+set -eu
+
+REPO=${REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}
+DIR=$(git rev-parse --show-toplevel)/.github/rulesets
+
+printf 'applying rulesets to %s\n' "$REPO"
+
+for file in "$DIR"/*.json; do
+    name=$(basename "$file" .json)
+
+    # gh's -q is jq syntax without the jq dependency. Numeric ids are read with
+    # -q rather than --template, which renders large integers in scientific
+    # notation and quietly produces an id that does not exist.
+    id=$(gh api "repos/$REPO/rulesets" -q ".[] | select(.name == \"$name\") | .id" 2>/dev/null || true)
+
+    if [ -n "$id" ]; then
+        printf '  updating %-24s (id %s)\n' "$name" "$id"
+        gh api --silent --method PUT "repos/$REPO/rulesets/$id" --input "$file"
+    else
+        printf '  creating %-24s\n' "$name"
+        gh api --silent --method POST "repos/$REPO/rulesets" --input "$file"
+    fi
+done
+
+printf '\nlive rulesets:\n'
+gh api "repos/$REPO/rulesets" -q '.[] | "  \(.name)  \(.target)  \(.enforcement)"'
