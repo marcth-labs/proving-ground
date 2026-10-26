@@ -1,0 +1,222 @@
+#!/bin/sh
+#
+# The commit-provenance check.
+#
+# One implementation, two callers: .githooks/commit-msg runs it over an
+# in-flight message, CI runs it over history. One script so that the hook and
+# the gate cannot drift apart and disagree about what the convention is, and
+# POSIX sh with no dependencies so that it runs on a host with no PHP and no
+# container up.
+#
+# The hook is an aid: `--no-verify` bypasses it and the repository says so.
+# CI is the control.
+#
+# The rule is a consistency rule in both directions, not "every commit carries a
+# trailer" -- which breaks on merge commits immediately:
+#
+#   non-merge commit  MUST be authored by an implementer credential
+#                     (a principal in .github/allowed_signers)
+#                     MUST carry a valid SSH signature from that file
+#                     MUST carry a Conventional Commits subject
+#                     MUST carry Refs: #NN
+#                     MUST carry a well-formed Generated-By trailer naming a
+#                     known agent
+#   merge commit      MUST NOT be authored by an implementer credential
+#                     MUST NOT carry Generated-By
+#                     exempt from Conventional Commits and from signature check
+#   any commit        MUST NOT carry Co-Authored-By
+#                     MUST NOT be a fixup!/squash!/amend! commit
+#                     MUST NOT be empty, except the root commit
+#
+# The second direction is the one that earns its keep. A commit carrying
+# Generated-By but not authored by an implementer is a false provenance claim,
+# and a presence-only check would wave it through. It is also what makes the
+# approver role real: a merge commit authored by the implementer fails here,
+# so "a different credential approved this" is checked rather than asserted.
+
+set -eu
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+SIGNERS="$REPO_ROOT/.github/allowed_signers"
+AGENTS="$REPO_ROOT/.github/agents.txt"
+
+# git's canonical empty tree. The root commit is the one commit in this
+# repository that no pull request could have reviewed, because no PR can target
+# a branch that does not exist yet. That exception is spent on a commit whose
+# tree is this constant -- so the exemption below is not a hole, it is a claim
+# an assessor verifies by comparing one well-known hash.
+EMPTY_TREE=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+
+SUBJECT_RE='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?!?: .{1,72}$'
+TRAILER_RE='^Generated-By: [A-Za-z0-9 ._-]+ \([a-z0-9.-]+\), agent: [a-z0-9-]+$'
+
+failures=0
+
+fail() {
+    printf '  FAIL %s\n' "$1" >&2
+    failures=$((failures + 1))
+}
+
+usage() {
+    cat >&2 <<USAGE
+usage: check-provenance --all
+       check-provenance --range <rev-range>
+       check-provenance --message <file>
+
+  --all      every commit reachable from HEAD, root included
+  --range    a git rev-range, e.g. origin/main..HEAD
+  --message  lint a single in-flight commit message file (hook mode)
+USAGE
+    exit 2
+}
+
+# Is this author address an implementer credential?
+is_implementer() {
+    grep -v '^[[:space:]]*#' "$SIGNERS" \
+        | grep -v '^[[:space:]]*$' \
+        | cut -d' ' -f1 \
+        | grep -Fxq "$1"
+}
+
+known_agent() {
+    grep -v '^[[:space:]]*#' "$AGENTS" \
+        | grep -v '^[[:space:]]*$' \
+        | grep -Fxq "$1"
+}
+
+# Checks that apply to a message whether it is in flight or already committed.
+# $1 message text, $2 label for reporting
+check_message() {
+    _msg=$1
+    _subject=$(printf '%s\n' "$_msg" | sed -n '1p')
+
+    case $_subject in
+        fixup!*|squash!*|amend!*)
+            fail "autosquash commit left in history: $_subject"
+            return
+            ;;
+    esac
+
+    printf '%s\n' "$_subject" | grep -Eq "$SUBJECT_RE" \
+        || fail "subject is not Conventional Commits (or exceeds 72 characters after the type): $_subject"
+
+    printf '%s\n' "$_msg" | grep -Eq '^Refs: #[0-9]+$' \
+        || fail "missing 'Refs: #NN' trailer"
+
+    _trailer=$(printf '%s\n' "$_msg" | grep -E '^Generated-By:' || true)
+    if [ -z "$_trailer" ]; then
+        fail "missing Generated-By trailer"
+    elif [ "$(printf '%s\n' "$_trailer" | wc -l)" -ne 1 ]; then
+        fail "more than one Generated-By trailer"
+    elif ! printf '%s\n' "$_trailer" | grep -Eq "$TRAILER_RE"; then
+        fail "malformed Generated-By trailer: $_trailer"
+    else
+        _agent=${_trailer##*, agent: }
+        known_agent "$_agent" \
+            || fail "unknown agent '$_agent'; extend .github/agents.txt by pull request"
+    fi
+}
+
+check_no_coauthor() {
+    printf '%s\n' "$1" | grep -Eqi '^Co-Authored-By:' \
+        && fail "Co-Authored-By is not permitted; the author field already carries identity"
+    return 0
+}
+
+check_commit() {
+    sha=$1
+    parents=$(git show -s --format=%P "$sha")
+    author=$(git show -s --format=%ae "$sha")
+    subject=$(git show -s --format=%s "$sha")
+    body=$(git show -s --format=%B "$sha")
+    tree=$(git show -s --format=%T "$sha")
+
+    nparents=$(printf '%s' "$parents" | wc -w)
+    short=$(git rev-parse --short "$sha")
+
+    printf '%s %s %s\n' "$short" "$author" "$subject"
+
+    check_no_coauthor "$body"
+
+    if [ "$nparents" -ge 2 ]; then
+        # Merge commit: the approver's act.
+        if is_implementer "$author"; then
+            fail "merge commit authored by an implementer credential ($author); the approver must differ from the author"
+        fi
+        printf '%s\n' "$body" | grep -Eq '^Generated-By:' \
+            && fail "merge commit carries Generated-By; it is the approver's commit, not generated content"
+        return 0
+    fi
+
+    # Non-merge commit: the implementer's act.
+    if ! is_implementer "$author"; then
+        fail "non-merge commit authored by '$author', which is not an implementer credential in .github/allowed_signers"
+    fi
+
+    if [ "$nparents" -eq 0 ]; then
+        # The root commit. Permitted to be empty, and required to be.
+        if [ "$tree" != "$EMPTY_TREE" ]; then
+            fail "root commit is not empty (tree $tree, expected $EMPTY_TREE); the one unreviewed commit in this repository must introduce nothing"
+        fi
+    else
+        if [ "$tree" = "$(git show -s --format=%T "${parents%% *}")" ]; then
+            fail "empty commit; nothing squashes it away under a merge-only history"
+        fi
+    fi
+
+    check_message "$body"
+
+    sigstatus=$(git show -s --format=%G? "$sha")
+    case $sigstatus in
+        G) : ;;
+        *) fail "signature status '$sigstatus'; expected a good SSH signature from .github/allowed_signers" ;;
+    esac
+}
+
+[ $# -ge 1 ] || usage
+
+case $1 in
+    --message)
+        [ $# -eq 2 ] || usage
+        # Strip comment lines the way git itself does before committing.
+        msg=$(grep -v '^#' "$2" | sed -e :a -e '/^\n*$/{$d;N;};/\n$/ba')
+        printf 'check-provenance: linting commit message\n'
+        check_message "$msg"
+        check_no_coauthor "$msg"
+        ;;
+    --all|--range)
+        if [ "$1" = "--all" ]; then
+            [ $# -eq 1 ] || usage
+            range=HEAD
+            printf 'check-provenance: every commit reachable from HEAD\n'
+        else
+            [ $# -eq 2 ] || usage
+            range=$2
+            printf 'check-provenance: %s\n' "$range"
+        fi
+
+        # Verifying signatures needs the committed registry wired up. Doing it
+        # here rather than asking the caller to is what makes the hook and CI
+        # behave identically.
+        git config gpg.ssh.allowedSignersFile "$SIGNERS"
+
+        commits=$(git rev-list "$range")
+        if [ -z "$commits" ]; then
+            printf 'no commits in range\n'
+            exit 0
+        fi
+        for sha in $commits; do
+            check_commit "$sha"
+        done
+        ;;
+    *)
+        usage
+        ;;
+esac
+
+if [ "$failures" -ne 0 ]; then
+    printf '\ncheck-provenance: %d failure(s)\n' "$failures" >&2
+    exit 1
+fi
+
+printf '\ncheck-provenance: ok\n'

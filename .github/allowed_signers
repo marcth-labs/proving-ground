@@ -1,0 +1,12 @@
+# Implementer credentials: the SSH public keys permitted to author non-merge
+# commits reachable from main. Committed deliberately, so that provenance
+# verifies offline from any clone, with no network call and no dependence on
+# GitHub's Verified badge or on these accounts continuing to exist.
+#
+#   git config gpg.ssh.allowedSignersFile .github/allowed_signers
+#   git log --show-signature
+#
+# The principal is the commit author address the key is permitted to sign as.
+# bin/check-provenance reads this file as the registry of implementer
+# credentials: an address listed here may author commits and may not merge them.
+347050697+proving-ground-ai-agent@users.noreply.github.com namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOF6uMbrYlvr0gvNts5/SZiPhKbOG/F2WL/gQIf4BEdF proving-ground-ai-agent
