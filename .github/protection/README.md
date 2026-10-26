@@ -1,7 +1,7 @@
-# Rulesets
+# Protection
 
 The declarative source for this repository's branch and tag protection. `make
-rulesets` applies them; nothing else should. A clicked setting is a change with
+protection` applies it; nothing else should. A clicked setting is a change with
 no diff, no review and no entry in the trail, which is the thing this repository
 exists to notice.
 
@@ -13,29 +13,53 @@ still matches these files.
 
 | File | What it does |
 |---|---|
-| `main-gate.json` | The gate. Pull request required, one approving review, code-owner review, stale reviews dismissed on push, last-push approval, threads resolved, merge commits only. Deletion, force-push and unsigned commits refused. |
-| `main-push-restriction.json` | A single `update` rule that only Repository admin bypasses. |
-| `release-tags.json` | Tags cannot be deleted or moved once created. `creation` is deliberately absent. |
-| `all-branches-signing.json` | Unsigned commits are unpushable anywhere, not just to `main`. |
+| `rulesets/main-gate.json` | The gate. Pull request required, one approving review, code-owner review, stale reviews dismissed on push, last-push approval, threads resolved, merge commits only. Deletion, force-push and unsigned commits refused. Bypass list **empty**. |
+| `rulesets/release-tags.json` | Tags cannot be deleted or moved once created. `creation` is deliberately absent. |
+| `rulesets/all-branches-signing.json` | Unsigned commits are unpushable anywhere, not just to `main`. |
+| `branches/main.json` | Classic branch protection. Its only job is `restrictions`: who may push to `main`, and therefore who may merge. |
 
-## Why `main` is split across two rulesets
+## Why the push restriction is classic protection and not a ruleset
 
-Bypass lists are **per-ruleset**, and that is the whole trick.
+**A ruleset cannot express a permission. It can only express an exemption.**
 
-`main-gate` has an **empty bypass list**, so it binds everyone including
-administrators. `main-push-restriction` carries the only bypass in the
-repository: Repository admin may perform `update` on `main`.
+There is no ruleset rule meaning *"these principals may push"*. The nearest
+construction is an `update` rule -- *"nobody may update this ref"* -- with the
+approver in the ruleset's `bypass_actors`. That works, and it is what this
+repository shipped first. It also means the approver merges **by bypassing a
+rule, every time, for the life of the repository**, and GitHub records it as
+such: the only button offered is *"Merge without waiting for requirements to be
+met (bypass rules)"*, and each merge lands in rule insights as a bypass.
 
-The effect is that the approver can merge an approved pull request and nobody,
-approver included, can get anything onto `main` that has not been through the
-gate. The implementer holds `write` but not `admin`, so it cannot land even a
-fully approved pull request -- it is structurally incapable of being the one who
-merges its own work.
+On a repository whose entire argument is that nobody bypasses anything, that is
+the wrong artifact. The claim available under that construction was *"one bypass
+exists, and all it does is distinguish the two roles"* -- true, defensible, and
+requiring a paragraph of explanation at exactly the point a reader is deciding
+whether to believe anything else here.
 
-This also makes "is admin bypass disabled?" a question with a precise answer
-rather than a judgement call: **the bypass list of the gate is empty, and the
-only bypass in the repository is the one that distinguishes the approver role
-from the implementer role, exempting nobody from any gate.**
+Classic branch protection has the rule that rulesets lack. `restrictions` is an
+**allowlist**: the approver is permitted, and everybody else -- administrators
+included, because `enforce_admins` is on -- is refused. The approver's merge is
+now an ordinary, permitted act. **There is no bypass anywhere in this
+repository.**
+
+The cost is that `main` is governed by two mechanisms rather than one, and they
+are read back from two different endpoints. That is the trade, and it is taken
+because the alternative corrupts the central claim. Nothing is duplicated
+between them: the gate lives in `main-gate` and only there, the restriction
+lives in `branches/main.json` and only there, and GitHub applies both.
+
+This was only possible once the repository moved to an organisation. User, app
+and team restrictions are not available on user-owned repositories, which is why
+the bypass construction was reached for in the first place. See
+[ADR 2](../../docs/adr/0002-protecting-main.md).
+
+## Why `enforce_admins` does not lock the approver out
+
+`enforce_admins: true` subjects administrators to the protection, and the
+approver is an administrator. It does not lock them out, because `restrictions`
+is an allowlist and the approver is on it -- the two settings answer different
+questions. This was verified live rather than reasoned about: see the evidence
+block on the pull request that introduced it.
 
 ## Required status checks, and why they are not here yet
 
@@ -60,9 +84,13 @@ tab.
 
 ## What this cannot see
 
-`GET /rules/branches/main` does not return `bypass_actors`. The field an
-attacker would change is the one the drift check cannot read. A write-scoped
-token can read `GET /rulesets/{id}`, but the response is redacted. Bypass-list
-drift is therefore detectable only by a human reading the settings page, and the
-per-iteration verification must cover it explicitly. Stated here rather than
-engineered around.
+The rulesets have an empty bypass list and the drift check cannot prove it.
+`GET /rules/branches/main` does not return `bypass_actors`, and `GET
+/rulesets/{id}` is redacted for a write-scoped token. A bypass list that grew an
+entry would therefore be invisible to CI, so the per-iteration verification must
+cover it by having a human read the settings page.
+
+Classic branch protection does not have this hole: `GET
+/branches/main/protection` returns `restrictions` in full to a token that can
+read it, so the allowlist itself is drift-checkable. The asymmetry is worth
+noting -- the mechanism that carries the dangerous field is the one CI can see.

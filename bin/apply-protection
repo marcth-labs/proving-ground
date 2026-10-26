@@ -1,22 +1,32 @@
 #!/bin/sh
 #
-# Apply .github/rulesets/*.json to the repository.
+# Apply .github/protection/ to the repository: the branch and tag rulesets, and
+# the classic branch protection that carries main's push restriction.
 #
 # Run by a human with an admin token, from a human's shell. Never by CI: an
 # admin PAT in Actions secrets would hand admin power to the implementer
-# credential, which is precisely the arrangement the rulesets exist to create.
+# credential, which is precisely the arrangement this configuration exists to
+# create.
 #
-# Idempotent. A ruleset whose name already exists is updated in place, so the
-# committed JSON stays the single source of truth and reapplying is always safe.
+# Idempotent. A ruleset whose name already exists is updated in place and the
+# branch protection is replaced wholesale, so the committed JSON stays the
+# single source of truth and reapplying is always safe.
+#
+# It never deletes. Retiring a ruleset is a destructive act and stays a human's
+# to perform; this script only reports live rulesets with no committed source.
 
 set -eu
 
 REPO=${REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}
-DIR=$(git rev-parse --show-toplevel)/.github/rulesets
+DIR=$(git rev-parse --show-toplevel)/.github/protection
 
-printf 'applying rulesets to %s\n' "$REPO"
+printf 'applying protection to %s\n' "$REPO"
 
-for file in "$DIR"/*.json; do
+printf '\nrulesets:\n'
+for file in "$DIR"/rulesets/*.json; do
+    # An unmatched glob stays literal, so without this the loop would announce
+    # it was creating a ruleset named '*' before dying on the missing file.
+    [ -e "$file" ] || { printf '  WARNING: no ruleset JSON in %s/rulesets\n' "$DIR"; break; }
     name=$(basename "$file" .json)
 
     # gh's -q is jq syntax without the jq dependency. Numeric ids are read with
@@ -33,5 +43,25 @@ for file in "$DIR"/*.json; do
     fi
 done
 
+printf '\nbranch protection:\n'
+for file in "$DIR"/branches/*.json; do
+    [ -e "$file" ] || { printf '  WARNING: no branch JSON in %s/branches\n' "$DIR"; break; }
+    branch=$(basename "$file" .json)
+    printf '  applying %-24s\n' "$branch"
+    gh api --silent --method PUT "repos/$REPO/branches/$branch/protection" --input "$file"
+done
+
 printf '\nlive rulesets:\n'
 gh api "repos/$REPO/rulesets" -q '.[] | "  \(.name)  \(.target)  \(.enforcement)"'
+
+gh api "repos/$REPO/rulesets" -q '.[].name' | while read -r live; do
+    [ -f "$DIR/rulesets/$live.json" ] || \
+        printf '\n  WARNING: %s is live with no committed source. Retire it by hand.\n' "$live"
+done
+
+printf '\nlive branch protection:\n'
+for file in "$DIR"/branches/*.json; do
+    branch=$(basename "$file" .json)
+    gh api "repos/$REPO/branches/$branch/protection" \
+        -q "\"  $branch  push restricted to: \" + ([.restrictions.users[].login] | join(\", \"))"
+done
