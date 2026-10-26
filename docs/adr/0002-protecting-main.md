@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Decided:** 2026-10-26
-- **Ratified:** <!-- the merge that landed this file -->
+- **Ratified:** on the merge of [#22](https://github.com/marcth-labs/proving-ground/pull/22)
 - **Tickets:** [#10](https://github.com/marcth-labs/proving-ground/issues/10), [#17](https://github.com/marcth-labs/proving-ground/issues/17)
 - **Supersedes:** the protection mechanism described in [ADR 1](0001-implementer-and-approver-credentials.md), which now points here
 

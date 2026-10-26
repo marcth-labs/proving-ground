@@ -11,7 +11,10 @@ A decision earns an ADR if it clears all three tests:
 3. **A genuine trade-off.** Something real was given up.
 
 A decision is **ratified** when its record lands on `main` through an approved
-pull request — not when its tracking issue closes. Each ADR records both dates.
+pull request — not when its tracking issue closes. Each ADR records when it was
+decided, and cites the pull request that ratified it. The citation rather than a
+date, because a file cannot carry the timestamp of the merge that lands it, and
+a date typed in beforehand is a prediction dressed as a record.
 
 | | Decision | Status |
 |---|---|---|

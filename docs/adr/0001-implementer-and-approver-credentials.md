@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Decided:** 2026-10-24
-- **Ratified:** <!-- the merge that landed this file -->
+- **Ratified:** on the merge of [#22](https://github.com/marcth-labs/proving-ground/pull/22)
 - **Tickets:** [#3](https://github.com/marcth-labs/proving-ground/issues/3), [#13](https://github.com/marcth-labs/proving-ground/issues/13), [#8](https://github.com/marcth-labs/proving-ground/issues/8)
 
 ## Context
