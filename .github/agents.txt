@@ -1,0 +1,12 @@
+# Permitted values for the `agent:` field of the Generated-By commit trailer.
+# One per line; blank lines and # comments ignored.
+#
+# The grammar of the trailer is enforced strictly and this vocabulary is not:
+# extending it takes a reviewed pull request. The split is deliberate. A gate
+# that is hard to satisfy honestly produces dishonest data -- if CI rejected an
+# unknown agent name outright, the cheapest route back to green would be to
+# write a wrong-but-allowed value, and the provenance trail would quietly
+# become fiction.
+wayfinder
+implementer
+verifier

@@ -1,0 +1,8 @@
+#!/bin/sh
+# Advisory. `git commit --no-verify` bypasses this, and that is fine: an
+# unhooked clone is fully protected, because CI runs the same script over the
+# history on every push and pull request. The hook exists to catch the mistake
+# before it costs a round trip, not to be the control.
+#
+# Wired up by `make setup` (git config core.hooksPath .githooks).
+exec "$(git rev-parse --show-toplevel)/bin/check-provenance" --message "$1"

@@ -1,0 +1,39 @@
+# The build context should contain what a clean clone contains, and nothing
+# else. Anything generated into the working tree at runtime must be excluded,
+# or a local build differs from a CI build in ways that surface late.
+#
+# This file earned its keep immediately: the dev container regenerates
+# bootstrap/cache/packages.php through the bind mount, and COPY . . then baked
+# a dev-package manifest into the --no-dev prod image, which died at boot with
+# `Class "Laravel\Pail\PailServiceProvider" not found`. CI would never have
+# caught it, because a clean clone has no such file.
+
+.git
+.gitattributes
+.github
+.githooks
+.scratch
+docs
+bin
+Makefile
+compose.yaml
+
+vendor
+node_modules
+
+.env
+.env.*
+!.env.example
+
+# Generated at runtime into the working tree
+bootstrap/cache/*.php
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+database/*.sqlite
+.phpunit.cache
+.phpunit.result.cache
+
+*.md
+!README.md
