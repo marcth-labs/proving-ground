@@ -29,6 +29,7 @@ untrue, it is a defect rather than a documentation gap.
 make help          # every gate is a target here
 make setup         # wire up hooks and offline signature verification
 make provenance    # verify every commit from the root
+make licence       # dependency licences, against an allowlist and an inventory
 make down
 ```
 
@@ -115,4 +116,19 @@ looking careless in a month.
 
 ## Licence
 
-[MIT](LICENSE).
+Copyright © 2026 111210793 Canada Inc.
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the **GNU General Public License** as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. See [`LICENSE`](LICENSE) for the full text.
+
+Relicensed from MIT on 31 Oct 2026; the reasoning, and the narrow thing GPLv3
+actually buys a repository with no deployed environment, are in
+[ADR 3](docs/adr/0003-outbound-licence-and-the-dependency-allowlist.md).
+
+Dependency licences are a separate question and a separate gate. The
+production tree is inventoried in
+[`THIRD-PARTY-LICENCES.md`](THIRD-PARTY-LICENCES.md) — an inventory, not a
+NOTICE, and it says so — and `make licence` fails on drift against the
+lockfile or on a dependency off the allowlist.

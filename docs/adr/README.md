@@ -20,3 +20,4 @@ a date typed in beforehand is a prediction dressed as a record.
 |---|---|---|
 | [1](0001-implementer-and-approver-credentials.md) | Implementer and approver credentials | Accepted |
 | [2](0002-protecting-main.md) | Protecting `main`: a permitted merge, not a bypass | Accepted |
+| [3](0003-outbound-licence-and-the-dependency-allowlist.md) | The outbound licence, and the dependency allowlist that follows from it | Accepted |

@@ -57,6 +57,15 @@ because that is the property that makes them dangerous.
 - **A red Dependabot pull request is a passing test, not a problem.** Close it
   and re-author the bump under the implementer credential. Never exempt bots
   from the provenance check.
+- **Never widen the licence allowlist to turn `make licence` green, and never
+  teach it to parse a licence expression.** A package declaring
+  `["BSD-3-Clause","GPL-2.0-only","GPL-3.0-only"]` passes on *any one* match;
+  one declaring only `GPL-3.0-only` must refuse, and adding that identifier to
+  clear the red silently binds this repository to GPL-only code. A
+  parenthesised `"(A and B)"` is Composer's **conjunctive** form and must also
+  refuse — a disjunctive parser applied to it accepts a package on a licence it
+  only half carries. A refusal is a ticket and a pull request, never a repair.
+  See [ADR 3](docs/adr/0003-outbound-licence-and-the-dependency-allowlist.md).
 
 ## CI
 
@@ -93,6 +102,9 @@ because that is the property that makes them dangerous.
 - Do not add dependencies without a ticket. In particular do not run
   `php artisan install:api`, which also installs Sanctum, or
   `composer require laravel/boost`.
+- Run `make licence` on any change to `composer.json` or `composer.lock`, and
+  commit the regenerated inventory. The gate reads the lockfile, so skipping it
+  leaves `THIRD-PARTY-LICENCES.md` asserting something the lockfile does not.
 
 ## Behat 4.0
 

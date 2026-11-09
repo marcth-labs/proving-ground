@@ -8,6 +8,11 @@
 # installed. No single `composer <verb>` spans all three, so something has to,
 # and a Makefile is the smallest thing that does.
 #
+# That split is why bin/ holds scripts in two languages. check-provenance is
+# POSIX sh because it must run on a bare host; check-licences is PHP because it
+# needs Composer anyway, and parsing Composer's JSON in sh without jq would
+# mean a regex over a structure.
+#
 # CI invokes these targets and implements nothing itself: any workflow `run:`
 # block longer than a single command is a defect. That rule is what keeps the
 # gate reproducible on a laptop.
@@ -17,7 +22,7 @@ COMPOSE := docker compose
 EXEC := $(COMPOSE) exec -T -e PAO_DISABLE=1 app
 
 .DEFAULT_GOAL := help
-.PHONY: help setup up down restart build logs shell test format provenance protection clean
+.PHONY: help setup up down restart build logs shell test format licence licence-write provenance protection clean
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -52,6 +57,12 @@ test: ## Run the test suite
 
 format: ## Apply the code style
 	$(EXEC) vendor/bin/pint
+
+licence: ## Check dependency licences and the third-party inventory
+	$(EXEC) bin/check-licences
+
+licence-write: ## Regenerate the third-party inventory (an aid, not a gate)
+	$(EXEC) bin/check-licences --write
 
 provenance: ## Verify the provenance of every commit from the root
 	./bin/check-provenance --all

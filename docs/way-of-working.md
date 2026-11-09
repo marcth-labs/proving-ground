@@ -111,7 +111,7 @@ a clean clone, on every pull request.
 | `acceptance` | 3 | Behat, against the `prod` image |
 | `contract-change` | 3 | A specification change is reviewed as a specification change |
 | `openapi` | 4 | Generate and audit, failing on warnings |
-| `licence` | 4 | Dependency licences against an allowlist |
+| `licence` | 4 | Dependency licences against an allowlist, and `THIRD-PARTY-LICENCES.md` against the lockfile. The artifact exists now as `make licence`; only the job waits on the workflow |
 | `red-before-green` | 4 | The named red SHA is an ancestor and was recorded red |
 
 `acceptance` runs against the **`prod`** image, not `dev`, because
@@ -231,6 +231,14 @@ replacement.
 - Check run conclusions expire after 90 days on a public repository. The
   durable record is the merge commit body, which is why the pull request
   template is written as an audit record.
+- **The licence allowlist is measured-only.** It names the three licences
+  present in the production tree today, so the first legitimate `BSD-2-Clause`
+  or `ISC` dependency stops a build. That is the design working: the cost is
+  one ticket, and the alternative is a list naming licences nobody chose.
+- **Dev dependencies are outside the licence gate** (`--no-dev`), so a dev-only
+  licence change is unchecked. Deliberate — dev tooling is never combined into
+  the conveyed work — and recorded so that widening it later is a reversal
+  rather than a gap being filled.
 - There is no SAST for PHP.
 - `required_signatures` on a tag ruleset does not verify the tag object — an
   unsigned annotated tag pushes fine. Signed-tag enforcement is a CI check, not

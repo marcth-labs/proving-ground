@@ -43,6 +43,20 @@ checks a change must pass. It grows across iterations; the authoritative list
 is the `Makefile` and the composer scripts CI invokes, not the table in
 `docs/way-of-working.md`.
 
+**Allowlist** — the set of **inbound** dependency licences whose terms permit
+this repository's own work to be offered under its outbound licence. Three
+entries, measured-present rather than anticipatory. A refusal is a ticket, not
+a repair: widening the list to turn a red green is how a genuinely GPL-only
+package gets in. See
+[ADR 3](docs/adr/0003-outbound-licence-and-the-dependency-allowlist.md).
+
+**Third-party inventory** — `THIRD-PARTY-LICENCES.md`, generated from the
+lockfile and drift-checked. An *inventory*, not a NOTICE: `composer licenses`
+carries no copyright holders and no licence texts, so it cannot discharge an
+attribution obligation. None is triggered — `vendor/` is untracked and nothing
+here publishes an image, so what this repository conveys is a lockfile naming
+these libraries rather than the libraries themselves.
+
 **Commit zero** — the first commit carrying any content. Not the root commit:
 the root commit is empty by construction.
 

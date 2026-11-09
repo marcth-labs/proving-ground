@@ -14,3 +14,14 @@ find the work behind a tag.
 - Commit zero: the Laravel 13 skeleton on PHP 8.5 and FrankenPHP, the Docker
   stack, the `Makefile` front door, the provenance check and its hook, and the
   documentation set. ([#8](https://github.com/marcth-labs/proving-ground/issues/8))
+- The `licence` gate: `bin/check-licences` and `make licence`, refusing any
+  production dependency that declares no licence on the `MIT` / `BSD-3-Clause`
+  / `Apache-2.0` allowlist, and failing on drift between the committed
+  `THIRD-PARTY-LICENCES.md` inventory and `composer.lock`.
+  ([#31](https://github.com/marcth-labs/proving-ground/issues/31))
+
+### Changed
+
+- Relicensed from MIT to `GPL-3.0-or-later`. See
+  [ADR 3](docs/adr/0003-outbound-licence-and-the-dependency-allowlist.md).
+  ([#28](https://github.com/marcth-labs/proving-ground/issues/28))

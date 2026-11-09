@@ -4,7 +4,7 @@
     "type": "project",
     "description": "A reference repository demonstrating an auditable, agent-implemented, human-approved delivery pipeline.",
     "keywords": ["laravel", "api", "provenance", "delivery-pipeline"],
-    "license": "MIT",
+    "license": "GPL-3.0-or-later",
     "require": {
         "php": "^8.5",
         "laravel/framework": "^13.17",
@@ -30,6 +30,10 @@
         }
     },
     "scripts": {
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
         "test": [
             "@php artisan config:clear --ansi",
             "@php artisan test"
